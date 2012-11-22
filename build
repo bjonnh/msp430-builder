@@ -1,0 +1,159 @@
+# This script builds and/or upload the specified 'file(s)' to a TI MSP-EXP430G2 board.
+# Author: Bisson Jonathan (bjonnh at bjonnh.net)
+# Copyright (C) 2012 Jonathan BISSON (bjonnh at bjonnh.net)
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+# You should have received a copy of the GNU General Public License along with this program. If not, see http://www.gnu.org/licenses/.
+
+VERSION=0.1
+CC=msp430-gcc
+CFLAGS="-Os -Wall -g"
+MCU=msp430g2553
+PROGRAMMER=rf2500
+VERT="\\033[1;32m"
+NORMAL="\\033[0;39m"
+ROUGE="\\033[1;31m"
+ROSE="\\033[1;35m"
+BLEU="\\033[1;34m"
+BLANC="\\033[0;02m"
+BLANCLAIR="\\033[1;08m"
+JAUNE="\\033[1;33m"
+CYAN="\\033[1;36m"
+SERIAL="X"
+
+usage()
+{
+cat << EOF
+usage: $0 options file(s)
+
+This script builds and/or upload the specified 'file(s)' to a TI MSP-EXP430G2 board.
+
+OPTIONS:
+   -h      Show this message
+   -s X    Upload to board with 'X' serial number
+   -m Y    Change the MCU (default: $MCU)
+   -p Z    Change the programmer (default: $PROGRAMMER)
+   -b      Only build
+   -u      Only upload
+   -a      Build and upload (default)
+   -v      Verbose
+EOF
+}
+
+BUILD=0
+UPLOAD=0
+VERBOSE=0
+echo -e $VERT"MSP430 Build station V$VERSION\n\n"$NORMAL
+while getopts “:hs:m:p:buav” OPTION
+do
+     case $OPTION in
+         h)
+             usage
+             exit 1
+             ;;
+         s)
+             SERIAL=$OPTARG
+             ;;
+         m)
+             MCU=$OPTARG
+             ;;
+         u)
+             UPLOAD=1
+             ;;
+         b)
+             BUILD=1
+             ;;
+         p)
+             PROGRAMMER=$OPTARG
+             ;;
+         a)
+             ;;
+	 v)
+	     VERBOSE=1
+	     ;;
+	 :)
+	     usage
+	     exit 65
+	     ;;
+         ?)
+             usage
+             exit
+             ;;
+     esac
+done
+if [ $UPLOAD == "0" ] && [ $BUILD == "0" ]
+then
+    BUILD=1
+    UPLOAD=1
+fi
+shift `expr $OPTIND - 1`
+
+CFLAGS="$CFLAGS -mmcu=$MCU"
+if [ $BUILD == 1 ]
+then
+    echo -e $VERT"Building for "$JAUNE$MCU$NORMAL
+    for i in $@ ; do
+	if [ ! -f $i ]
+	then
+	    echo -e $ROUGE"File not found $i"$NORMAL
+	    exit 1
+	fi
+	echo -ne $BLEU"Compiling $i "$NORMAL
+	OBJ=`basename -s .c $i`.o
+	if echo "$OBJS" | grep $OBJ > /dev/null
+	then
+	    echo -ne $JAUNE"Warning: You are compiling two times the same file."$NORMAL
+	else
+	    OBJS="$OBJS $OBJ"
+	fi
+	echo $CC $CFLAGS -o $OBJ -c $i
+	if [ $? == 0 ]
+	then
+	    echo -e $VERT"OK"$NORMAL
+	else 
+	    echo -e $ROUGE"ERROR"$NORMAL
+	    exit 2
+	fi
+      
+    done
+    echo -ne $BLEU"Linking "$NORMAL
+    $CC $CFLAGS -o main.elf $OBJS 
+
+    if [ $? == 0 ]
+    then
+	echo -e $VERT"OK"$NORMAL
+    else 
+	echo -e $ROUGE"ERROR"$NORMAL
+	exit 2
+    fi
+fi
+if [ $UPLOAD == 1 ]
+then
+    echo -e $VERT"Uploading"
+    if [ $SERIAL != "X" ]
+    then
+	GOT=0
+	for i in `mspdebug --usb-list | grep serial | awk -F'[\\\\[\\\\] ]' '{print $10}'`; do
+	    if [ $SERIAL == $i ]
+	    then
+		GOT=1
+	    fi
+	done
+	if [ $GOT == 0 ]
+	then
+	    echo -e $ROUGE"Can't find the programmer with $SERIAL serial number"$NORMAL
+	    exit 3
+	else
+	    echo -e $BLEU"Found the programmer with $JAUNE$SERIAL$BLEU serial number"$NORMAL
+	    SERIALOPT="-s $SERIAL"
+        fi
+    fi
+    echo -ne $BLEU"Programming "$NORMAL
+    mspdebug $PROGRAMMER $SERIALOPT "prog main.elf" &> mspdebug.log
+    if [ $? == 0 ]
+    then
+	echo -e $VERT"OK"$NORMAL
+    else
+	echo -e $ROUGE"ERROR"$NORMAL
+    fi
+fi
