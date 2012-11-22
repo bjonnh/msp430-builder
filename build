@@ -106,7 +106,7 @@ then
 	else
 	    OBJS="$OBJS $OBJ"
 	fi
-	echo $CC $CFLAGS -o $OBJ -c $i
+	$CC $CFLAGS -o $OBJ -c $i
 	if [ $? == 0 ]
 	then
 	    echo -e $VERT"OK"$NORMAL
