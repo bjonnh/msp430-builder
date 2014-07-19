@@ -91,6 +91,13 @@ shift `expr $OPTIND - 1`
 CFLAGS="$CFLAGS -mmcu=$MCU"
 if [ $BUILD == 1 ]
 then
+    OK=0
+    if [ -z $@ ]
+    then
+	echo -e $ROUGE"Give me the food"$NORMAL
+	exit 1
+    fi
+
     echo -e $VERT"Building for "$JAUNE$MCU$NORMAL
     for i in $@ ; do
 	if [ ! -f $i ]
@@ -110,21 +117,24 @@ then
 	if [ $? == 0 ]
 	then
 	    echo -e $VERT"OK"$NORMAL
+	    OK=1
+	else 
+	    echo -e $ROUGE"ERROR"$NORMAL
+	    exit 2
+	fi      
+    done
+    if [ $OK == "1" ]
+    then
+	echo -ne $BLEU"Linking "$NORMAL
+	$CC $CFLAGS -o main.elf $OBJS 
+
+	if [ $? == 0 ]
+	then
+	    echo -e $VERT"OK"$NORMAL
 	else 
 	    echo -e $ROUGE"ERROR"$NORMAL
 	    exit 2
 	fi
-      
-    done
-    echo -ne $BLEU"Linking "$NORMAL
-    $CC $CFLAGS -o main.elf $OBJS 
-
-    if [ $? == 0 ]
-    then
-	echo -e $VERT"OK"$NORMAL
-    else 
-	echo -e $ROUGE"ERROR"$NORMAL
-	exit 2
     fi
 fi
 if [ $UPLOAD == 1 ]
